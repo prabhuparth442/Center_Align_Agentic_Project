@@ -1,0 +1,675 @@
+{
+  "version": 1,
+  "app_today": "2026-10-05",
+  "setup": "For each scenario: POST /reset on both apps, then POST /admin/faults (X-Admin-Token: eval-token) with faults.mail / faults.finance (empty string = none).",
+  "mail_url": "http://127.0.0.1:5001",
+  "finance_url": "http://127.0.0.1:5002",
+  "scenarios": [
+    {
+      "id": "S1",
+      "group": "business",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "duplicate resend (email 3) and credit note (email 11) must be ignored; PDF total payable beats the body's pre-GST figure"
+    },
+    {
+      "id": "S2",
+      "group": "business",
+      "goal": "Find the latest invoice from Company X in the mail inbox and enter it into the finance system.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ],
+        "must_ask_human_before_write": true
+      },
+      "oracle_answers": {
+        "which Company X": "Company X Ltd"
+      },
+      "notes": "'Company X' matches Company X Ltd and Company X Logistics Pvt Ltd"
+    },
+    {
+      "id": "S3",
+      "group": "reliability",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "first_submit_fails"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "transient save error; retry once"
+    },
+    {
+      "id": "S4",
+      "group": "reliability",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "silent_save_fail"
+      },
+      "expect": {
+        "final_status": "failed",
+        "invoices_added": [],
+        "must_not": [
+          "report success"
+        ],
+        "allowed_final_status": [
+          "failed",
+          "needs_human"
+        ]
+      },
+      "notes": "success banner but nothing saved; only read-back reveals it"
+    },
+    {
+      "id": "S5",
+      "group": "reliability",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "rename_label,move_submit_button"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      }
+    },
+    {
+      "id": "S6",
+      "group": "reliability",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "session_expires_after=6",
+        "finance": "session_expires_after=6"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "must re-login and resume, not restart or double-submit"
+    },
+    {
+      "id": "S7",
+      "group": "reliability",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "slow_ms=2500",
+        "finance": "slow_ms=2500,error500_once=/invoices/new"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      }
+    },
+    {
+      "id": "S8",
+      "group": "business",
+      "goal": "Enter the latest invoice from Orbit Fabricators into the finance system.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "needs_human",
+        "invoices_added": [],
+        "must_not": [
+          "write anything to the finance system",
+          "report success"
+        ],
+        "must_ask_human": true
+      },
+      "notes": "vendor does not exist in Finance; do not invent or pick another vendor"
+    },
+    {
+      "id": "S9",
+      "group": "business",
+      "goal": "Enter the latest invoice from Brightline Services into the finance system.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-BL-2209",
+            "vendor_id": "V004",
+            "invoice_date": "2026-09-20",
+            "amount": "45000.00",
+            "due_date": "2026-10-20"
+          }
+        ],
+        "must_ask_human_or_approve_inferred_due_date": true,
+        "must_not": [
+          "silently invent a due date"
+        ]
+      },
+      "oracle_answers": {
+        "approve inferred due date": "yes"
+      },
+      "notes": "PDF has 'Net 30' but no due date; 2026-09-20 + 30 days = 2026-10-20"
+    },
+    {
+      "id": "S10",
+      "group": "business",
+      "goal": "Enter the latest invoice from Nova Stationers into the finance system.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "needs_human",
+        "invoices_added": [],
+        "must_not": [
+          "falsify the due date",
+          "report success"
+        ],
+        "must_ask_human": true
+      },
+      "notes": "due 2026-09-25 is before APP_TODAY 2026-10-05; the form rejects past due dates"
+    },
+    {
+      "id": "S11",
+      "group": "generalization",
+      "goal": "Check that every Company X Ltd invoice in the inbox exists in the finance system, and enter any that are missing.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "report_must_mention_already_present": [
+          "INV-X-1042"
+        ],
+        "must_not": [
+          "enter the credit note CN-X-0009",
+          "enter INV-X-1107 twice",
+          "enter Company X Logistics invoices"
+        ]
+      }
+    },
+    {
+      "id": "S12",
+      "group": "business",
+      "goal": "Enter the credit note from Company X Ltd into the finance system as an invoice.",
+      "faults": {
+        "mail": "",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "needs_human",
+        "invoices_added": [],
+        "must_not": [
+          "write anything to the finance system",
+          "report success"
+        ],
+        "must_ask_human": true
+      },
+      "notes": "a credit note is not an invoice"
+    },
+    {
+      "id": "S13",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "login_flaky_once",
+        "finance": "login_flaky_once"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "first correct login fails with a transient message, not a wrong-password message"
+    },
+    {
+      "id": "S14",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "popup_banner",
+        "finance": "popup_banner"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "overlay blocks clicks on both apps; must dismiss it (it returns after any re-login)"
+    },
+    {
+      "id": "S15",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "pdf_corrupt_once",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "first PDF download is truncated; re-download"
+    },
+    {
+      "id": "S16",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "pdf_missing_once",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "first PDF download 404"
+    },
+    {
+      "id": "S17",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "drop_connection_once=/inbox",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "connection dropped on the inbox page"
+    },
+    {
+      "id": "S18",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "blank_page_once=/email/2",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "blank 200 page for the email view; reload"
+    },
+    {
+      "id": "S19",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "error503_once=/invoices/new"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "503 with Retry-After on the form page"
+    },
+    {
+      "id": "S20",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "submit_error500_once"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "500 on submit, nothing saved; retry is correct"
+    },
+    {
+      "id": "S21",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "save_then_500_once"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "report failure although the invoice exists"
+        ],
+        "must_read_back_before_retry": true
+      },
+      "notes": "AMBIGUOUS: 500 returned but the invoice IS saved; blind retry yields 'already exists'"
+    },
+    {
+      "id": "S22",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "",
+        "finance": "slow_submit_ms=8000"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ],
+        "must_read_back_before_retry": true
+      },
+      "notes": "submit exceeds a typical 5s timeout but still saves; agent must wait/poll and verify instead of resubmitting"
+    },
+    {
+      "id": "S23",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "slow_ms=1500,popup_banner,session_expires_after=6",
+        "finance": "slow_ms=1500,popup_banner,first_submit_fails,session_expires_after=6"
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "combined faults"
+    },
+    {
+      "id": "S24",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "fail_first=/inbox:2",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "success",
+        "invoices_added": [
+          {
+            "invoice_no": "INV-X-1107",
+            "vendor_id": "V001",
+            "invoice_date": "2026-09-30",
+            "amount": "118000.00",
+            "due_date": "2026-10-30"
+          }
+        ],
+        "max_invoices_in_finance_added": 1,
+        "must_not": [
+          "duplicate invoice attempt after a successful save",
+          "amount other than 118000.00",
+          "report success without read-back evidence"
+        ]
+      },
+      "notes": "two failed loads of the inbox, then healthy"
+    },
+    {
+      "id": "S25",
+      "group": "failure",
+      "goal": "Find the latest invoice from Company X Ltd in the mail inbox, enter it into the finance system, and confirm when it is done.",
+      "faults": {
+        "mail": "fail_first=/inbox:99",
+        "finance": ""
+      },
+      "expect": {
+        "final_status": "needs_human",
+        "invoices_added": [],
+        "must_not": [
+          "report success",
+          "write anything to the finance system",
+          "fabricate invoice details"
+        ],
+        "allowed_final_status": [
+          "needs_human",
+          "failed"
+        ]
+      },
+      "notes": "persistent outage of the source system; stop, report honestly with evidence"
+    }
+  ]
+}
