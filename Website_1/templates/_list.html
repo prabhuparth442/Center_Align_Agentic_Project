@@ -1,0 +1,17 @@
+<table id="inbox-table" data-testid="inbox-table" class="mail-table">
+  <thead><tr><th>{{ 'To' if folder == 'sent' else 'From' }}</th><th>Subject</th><th>Date</th><th>Attachment</th></tr></thead>
+  <tbody>
+  {% for e in emails %}
+    <tr data-testid="email-row-{{ e.id }}" id="email-row-{{ e.id }}">
+      {% if e.folder == 'sent' %}
+      <td><a class="plain" href="{{ url_for('contact_view', addr=e.recipient_email) }}">{{ e.recipient_name }}</a> &lt;{{ e.recipient_email }}&gt;</td>
+      {% else %}
+      <td><a class="plain" href="{{ url_for('contact_view', addr=e.sender_email) }}">{{ e.sender_name }}</a> &lt;{{ e.sender_email }}&gt;</td>
+      {% endif %}
+      <td><a href="{{ url_for('email_view', email_id=e.id) }}" id="email-link-{{ e.id }}" data-testid="email-link-{{ e.id }}">{{ e.subject }}</a></td>
+      <td class="nowrap">{{ e.date }}</td>
+      <td>{% if e.attachment_filename %}<span class="tag">PDF</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
