@@ -1,7 +1,49 @@
 """Audit trace: one JSONL line per event + a markdown run report."""
 import json
+import re
 import time
 from pathlib import Path
+
+
+def new_run_id(goal, run_dir=None):
+    """A readable, sortable name for a run: 20261011-172610_full-summary-for-both-website"""
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+
+    # the first words of the goal, as many as fit in 40 characters, so a name never ends in half a word
+    slug = ""
+    for word in re.findall("[a-z0-9]+", goal.lower()):
+        if slug != "" and len(slug) + 1 + len(word) > 40:
+            break
+        if slug == "":
+            slug = word[:40]
+        else:
+            slug = slug + "-" + word
+    if slug == "":
+        slug = "run"
+
+    run_id = f"{stamp}_{slug}"
+    # two runs with the same goal in the same second would share a folder
+    if run_dir is not None:
+        first_try = run_id
+        counter = 2
+        while (Path(run_dir) / run_id).exists():
+            run_id = f"{first_try}-{counter}"
+            counter = counter + 1
+    return run_id
+
+
+def short_args(args):
+    """{'app': 'mail', 'path': '/inbox'} -> 'app=mail path=/inbox', long values cut."""
+    parts = []
+    for key, value in args.items():
+        text = str(value)
+        if len(text) > 40:
+            text = text[:37] + "..."
+        parts.append(f"{key}={text}")
+    line = " ".join(parts)
+    if len(line) > 90:
+        line = line[:87] + "..."
+    return line
 
 
 class Trace:
@@ -35,14 +77,47 @@ class Trace:
         for event in reversed(self.events()):
             if event["kind"] in ("escalate", "budget"):
                 return event["reason"]
+            if event["kind"] == "finish" and event["status"] != "success":
+                return f"the agent ended the run as {event['status']}"
             if event["kind"] == "approval":
                 answer = event.get("data")
                 if not event.get("ok") or not answer or not answer.get("approved"):
                     return f"approval not given ({event.get('reason')})"
         return ""
 
+    def answer_lines(self, state):
+        """What the user reads first. It is an answer only if the goal was reached."""
+        done = state.status == "success"
+        lines = []
+
+        if state.answer != "":
+            if not done:
+                # the summary of a run that gave up is the agent's last message, not an answer
+                lines.append("The agent stopped before finishing, and said:")
+            lines.append(state.answer)
+            if len(state.answer_evidence) > 0:
+                lines += ["", "Evidence:"]
+                for item in state.answer_evidence:
+                    lines.append(f"- {item}")
+        elif done and state.verified:
+            lines.append("The invoice was entered and the read-back matches the document.")
+        elif done:
+            lines.append("The run ended as success but the agent wrote no answer.")
+        else:
+            lines.append("The goal was not completed, and the agent wrote no final answer.")
+
+        # a run without a written answer, or one that gave up: show what it had found
+        if len(state.memory) > 0 and (state.answer == "" or not done):
+            lines += ["", "What the agent found so far:"]
+            for fact in state.memory.values():
+                value = fact.value
+                if len(value) > 150:
+                    value = value[:147] + "..."
+                lines.append(f"- {fact.key} = {value}")
+        return lines
+
     def report(self, state, tokens=None):
-        """Write report.md: goal, plan, steps, evidence, verifier result, tokens, status."""
+        """Write report.md. The top (header and answer) is what the terminal shows at the end of a run."""
         if state.verified:
             verified_text = "yes"
         else:
@@ -57,25 +132,51 @@ class Trace:
         if reason != "" and state.status != "success":
             lines.append(f"Stopped because: {reason}")
 
+        if state.status == "success":
+            lines += ["", "## Answer"]
+        else:
+            lines += ["", "## Not completed"]
+        lines += self.answer_lines(state)
+
+        # the plan as the planner first made it (a replan changes state.plan afterwards)
         lines += ["", "## Plan"]
+        plan_events = self.events("plan")
+        if len(plan_events) > 0:
+            steps = plan_events[0]["steps"]
+        else:
+            steps = [step.model_dump() for step in state.plan]
         number = 1
-        for step in state.plan:
-            # the plan holds Step objects, but a plain string works too
-            if isinstance(step, str):
-                text = step
-            else:
-                text = step.intent
-            lines.append(f"{number}. {text}")
+        for step in steps:
+            lines.append(f"{number}. {step['intent']}")
             number = number + 1
 
-        lines += ["", "## Steps"]
-        for event in self.events("check"):
-            lines.append(f"- {event.get('tool')}: ok={event.get('ok')} error={event.get('error')} -> {event.get('verdict')}")
-        for event in self.events("policy"):
-            if event.get("verdict") != "allow":
-                lines.append(f"- policy {event['verdict']}: {event.get('reason')}")
+        lines += ["", "## What the agent did"]
+        last_action = None
+        for event in self.events():
+            kind = event["kind"]
+            if kind == "policy":
+                last_action = event["action"]
+                if event["verdict"] != "allow":
+                    action_text = f"{last_action.get('tool', '?')} {short_args(last_action.get('args', {}))}"
+                    lines.append(f"- policy {event['verdict']} for {action_text}: {event['reason']}")
+            elif kind == "check":
+                args_text = ""
+                if last_action is not None and last_action.get("tool") == event["tool"]:
+                    args_text = " " + short_args(last_action.get("args", {}))
+                result = event["verdict"]
+                if event["error"]:
+                    result = f"{event['error']} -> {event['verdict']}"
+                lines.append(f"- {event['tool']}{args_text}: {result}")
+            elif kind == "recover":
+                lines.append(f"  recovery '{event['name']}'")
+            elif kind == "replan":
+                lines.append(f"- replanned: {event['reason'][:120]}")
+            elif kind in ("escalate", "budget"):
+                lines.append(f"- stopped: {event['reason']}")
 
-        lines += ["", "## Evidence"]
+        lines += ["", "## Facts the agent saved"]
+        if len(state.memory) == 0:
+            lines.append("(none)")
         for fact in state.memory.values():
             lines.append(f"- {fact.key} = {fact.value}  ({fact.evidence})")
 

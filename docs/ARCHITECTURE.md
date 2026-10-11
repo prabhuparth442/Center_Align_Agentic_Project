@@ -1,4 +1,4 @@
-# Architecture (design, not yet implemented)
+# Architecture (design; implemented in agent/, see _context/log for the current state)
 
 Goal: take a natural-language office task, complete it in two web apps, and prove it was completed.
 The loop is hand-written Python so every decision can be explained and debugged in a live walkthrough.

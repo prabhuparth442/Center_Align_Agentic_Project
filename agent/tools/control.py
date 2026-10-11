@@ -17,6 +17,7 @@ Status: all five tools are implemented. Instead of the loop intercepting the nam
 bind(state, trace) once at the start of a run and the tools use what was bound (CTX below). The TODO
 comments stay, with a short DONE note under each.
 """
+from ..policy import is_submit
 from .base import ToolResult, tool
 
 STATUSES = ["success", "partial", "failed", "needs_human"]
@@ -142,24 +143,48 @@ def request_approval(action_summary, risk):
 # read back and matches). So the model cannot just *claim* it worked - code checks it.
 # `evidence` is the list of proofs backing the claim (read-back record, quotes, statuses).
 #
-# DONE: for "success" it runs the verifier itself (unless it already passed), so the model can't skip
-# the read-back. If that fails, success is refused and the run keeps going, so the model can fix it
-# or finish honestly. The loop should stop once state.status is no longer "running".
-@tool("finish", "End the run. 'success' is refused unless the verifier passed",
+# DONE: the summary is the ANSWER to the user's goal: it is stored on the state and shown at the top of the
+# report and at the end of the run, so it has to hold the real findings. Only a run that actually clicked
+# Save on the invoice form must pass the read-back before "success" is accepted; the verifier is run here so
+# the model can't skip it. A question-type run (no write) can finish as success without it. If the
+# read-back fails, success is refused and the run keeps going. The loop should stop once state.status is no
+# longer "running".
+@tool("finish", "End the run. summary = the final ANSWER to the user's request, written for the user with "
+                "the real findings (names, numbers, dates), not a list of what you did. After an invoice "
+                "was submitted, 'success' is refused unless the read-back matched",
       {"status": "success|partial|failed|needs_human", "summary": "str", "evidence": "list"})
 def finish(status, summary, evidence):
     state = get_state()
     if status not in STATUSES:
         return ToolResult.fail("ERR_VALIDATION", f"status must be one of {STATUSES}")
 
-    if status == "success" and not state.verified:
+    if status == "success" and not state.verified and submit_was_attempted(state):
         # imported here because verifier.py uses the tools, importing at the top would go in a circle
         from ..verifier import verify_invoice
         report = verify_invoice(state, CTX.trace)
         if not report.passed:
             return ToolResult.fail("ERR_POLICY", "success refused, read-back failed: " + "; ".join(report.mismatches))
 
+    state.answer = str(summary)
+    state.answer_evidence = []
+    if isinstance(evidence, list):
+        for item in evidence:
+            state.answer_evidence.append(str(item))
+    elif evidence:
+        state.answer_evidence.append(str(evidence))
+
     state.status = status
     if CTX.trace is not None:
         CTX.trace.log("finish", status=status, summary=summary, evidence=evidence)
     return ToolResult(True, {"status": status, "summary": summary}, evidence=f"run finished: {status}")
+
+
+def submit_was_attempted(state):
+    """Did this run click Save on the invoice form? Then it is a write and must be verified."""
+    if len(state.submitted) > 0:
+        return True
+    if CTX.trace is not None:
+        for event in CTX.trace.events("policy"):
+            if is_submit(event["action"]) and event["verdict"] != "block":
+                return True
+    return False

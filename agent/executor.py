@@ -8,6 +8,8 @@ from .tools.base import REGISTRY, describe_tools
 
 MAX_OBSERVATION_CHARS = 3000   # TOOLS.md: keep observations compact
 EXTRA_TRIES = 2                # how often a bad tool name / argument goes back to the model
+MAX_NOTES = 8                  # how many earlier observations the model gets, shortened
+NOTE_CHARS = 1000
 
 PROMPT = """You carry out ONE step of a browser task by choosing ONE tool.
 
@@ -18,7 +20,12 @@ Reply with JSON only: {{"tool": "<name>", "args": {{...}}}}
 Rules:
 - Use only values you can see in the observation or the known facts. Never invent values.
 - Do not put passwords or secrets in args. The login tools use stored credentials.
-- If the step is already done according to the observation, pick the tool that checks or moves on."""
+- If the step is already done according to the observation, pick the tool that checks or moves on.
+- You only see the last observation in full. When you learn something the goal needs, save it with
+  remember(key, value, evidence), or it may be lost by the time you have to answer.
+- The run ends with finish. Its summary is the ANSWER to the user's goal, written for the user: the real
+  findings (names, numbers, dates) taken from the facts and notes below, not a list of the steps you took.
+- Do not call request_approval yourself. The system asks for approval when it is needed."""
 
 
 class Action(BaseModel):
@@ -42,11 +49,16 @@ def build_messages(state, step, observation):
     if facts == "":
         facts = "(none yet)"
 
+    notes = "\n---\n".join(state.notes)
+    if notes == "":
+        notes = "(none yet)"
+
     user = (
         f"Goal: {state.goal}\n\n"
         f"Current step: {step.intent}\n"
         f"Expected afterwards: {step.expect}\n\n"
         f"Known facts:\n{facts}\n\n"
+        f"Notes from earlier steps (oldest first, shortened):\n{notes}\n\n"
         f"Last observation:\n{trim(observation)}"
     )
     return [{"role": "system", "content": PROMPT.format(tools=describe_tools())},
@@ -72,6 +84,13 @@ def next_action(llm, state, step, observation):
     """Ask the model for one tool call. Bad JSON is repaired inside llm.structured;
     an unknown tool or argument name is sent back here, up to EXTRA_TRIES times."""
     messages = build_messages(state, step, observation)
+
+    # Keep this observation for the next calls. The model only gets the latest one in full, so without
+    # these notes it could not write a summary of what it saw earlier.
+    if observation != "(start)":
+        state.notes.append(trim(observation, NOTE_CHARS))
+        state.notes = state.notes[-MAX_NOTES:]
+
     problem = None
     for attempt in range(EXTRA_TRIES + 1):
         action = llm.structured(messages, Action, think=False)   # thinking off: fast and cheap

@@ -25,10 +25,9 @@ class Config:
     llm_base_url: str = ""
     llm_api_key: str = ""
     planner_model: str = ""
-    executor_model: str = ""
 
     # Control limits
-    max_steps: int = 40
+    max_steps: int = 60
     max_retries: int = 2
     max_replans: int = 2
     step_timeout_s: int = 10
@@ -52,7 +51,6 @@ class Config:
             llm_base_url=env("LLM_BASE_URL", defaults.llm_base_url),
             llm_api_key=env("LLM_API_KEY", defaults.llm_api_key),
             planner_model=env("PLANNER_MODEL", defaults.planner_model),
-            executor_model=env("EXECUTOR_MODEL", defaults.executor_model),
             max_steps=_int("MAX_STEPS", defaults.max_steps),
             max_retries=_int("MAX_RETRIES", defaults.max_retries),
             max_replans=_int("MAX_REPLANS", defaults.max_replans),

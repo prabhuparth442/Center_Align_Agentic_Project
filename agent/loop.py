@@ -1,6 +1,5 @@
 """Main loop: plan -> (act -> policy -> execute -> check)* -> verify -> finish."""
 import time
-import uuid
 
 from .checker import check, backoff_seconds
 from .config import Config
@@ -10,7 +9,7 @@ from .planner import make_plan, replan
 from .policy import check as policy_check, is_submit
 from .state import RunState
 from .tools import control
-from .trace import Trace
+from .trace import Trace, new_run_id
 from .tools.base import REGISTRY, ToolResult
 from .verifier import verify_invoice
 
@@ -18,10 +17,16 @@ MAX_OBSERVATION_CHARS = 3000
 
 def recover(name: str, app: str | None) -> ToolResult:
     if name == "relogin":
-        return REGISTRY["browser_login"].fn(app=app or "finance")
+        result = REGISTRY["browser_login"].fn(app=app or "finance")
+        if result.error_code == "ERR_INTERCEPTED":
+            # the maintenance popup can sit on the login page too: close it, then log in once more
+            recover("dismiss_overlay", app)
+            result = REGISTRY["browser_login"].fn(app=app or "finance")
+        return result
     if name == "dismiss_overlay":
         #TODO: Add this tool working part then update
-        return ToolResult(True, evidence="no overlay-dismiss tool yet; the step will simply be retried")
+        # DONE: the maintenance popup has a "Got it" button, data-testid banner-dismiss, on both apps
+        return REGISTRY["browser_click"].fn(app=app or "finance", target="banner-dismiss")
     return ToolResult.fail("ERR_UNKNOWN", f"no such recovery: {name}")
 
 
@@ -49,7 +54,9 @@ def track_submits(state: RunState, action, result: ToolResult)-> None:
 
     number = inv.value.strip().upper()
 
-    if is_submit(action.model_dump()) and result.ok:
+    # no "and result.ok": after a timeout or a 500 the save may still have landed, so count it as
+    # attempted. The next submit is then blocked until finance_get_invoice shows it is not there.
+    if is_submit(action.model_dump()):
         state.submitted.add(number)
     elif action.tool == "finance_get_invoice" and result.error_code == "ERR_NOT_FOUND":
         state.submitted.discard(number)
@@ -73,7 +80,7 @@ def try_replan(llm : LLM, state: RunState, trace : Trace, cfg : Config, reason: 
 def run(goal: str, cfg: Config | None = None) -> RunState:
     cfg = cfg or Config.from_env()
     
-    state = RunState(goal=goal, run_id=uuid.uuid4().hex[:8])
+    state = RunState(goal=goal, run_id=new_run_id(goal, cfg.run_dir))
     trace = Trace(cfg.run_dir, state.run_id)
     llm = LLM(cfg.llm_base_url, cfg.llm_api_key, cfg.planner_model)  # same model, think toggled per call
 
@@ -85,6 +92,7 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
 
     observation = "(start)"
     app = None
+    blocked_submit = False     # a submit was blocked, so the next finance_get_invoice decides that step
 
     while state.step_index < len(state.plan) and state.steps_used < cfg.max_steps:
 
@@ -109,6 +117,8 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
             continue
 
         app = action.args.get("app", app)
+        if action.tool.startswith("finance_"):
+            app = "finance"      # these tools have no app argument, but they belong to the finance app
 
         # Policy Check
         decision = policy_check(action.model_dump(), state, cfg)
@@ -116,6 +126,8 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
 
         if decision.verdict == "block":
             state.steps_used += 1
+            if is_submit(action.model_dump()):
+                blocked_submit = True
             observation = f"BLOCKED by policy : {decision.reason}. Choose a different action"
             continue
 
@@ -143,8 +155,21 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
         if state.status != "running":
             break
 
+        # A read-back that replaces a blocked submit settles that step: found = it was saved,
+        # not found = the submit never landed, so the same step runs again.
+        not_saved = False
+        if blocked_submit and action.tool == "finance_get_invoice":
+            if result.ok:
+                verdict.kind = "ok"
+                blocked_submit = False
+            elif result.error_code == "ERR_NOT_FOUND":
+                not_saved = True
+                blocked_submit = False
+
         # Reaction to the verdict
-        if verdict.kind == "ok":
+        if verdict.kind == "ok" and not_saved:
+            observation = "The invoice is not in finance, so the submit did not go through. Submit again."
+        elif verdict.kind == "ok":
             state.step_index += 1
             state.retries = 0
             observation = compact(result) if result.ok else f"not found ({result.error_message})"

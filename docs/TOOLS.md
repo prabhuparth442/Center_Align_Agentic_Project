@@ -65,7 +65,9 @@ workflow needs.
 `ERR_HTTP_5XX` / `ERR_HTTP_503` (retry, honour `Retry-After`) · `ERR_NAV_FAILED` (dropped connection, retry) ·
 `ERR_BLANK_PAGE` (reload) · `ERR_TIMEOUT` (wait/poll, then verify) · `ERR_INTERCEPTED` (dismiss overlay) ·
 `ERR_SESSION_EXPIRED` (re-login, resume) · `ERR_LOGIN_TRANSIENT` (retry login) · `ERR_PDF_UNREADABLE` (re-download) ·
-`ERR_HTTP_404` · `ERR_VALIDATION` (field errors from the form, shown to the model) · `ERR_NOT_FOUND` · `ERR_POLICY` (blocked by the permission layer).
+`ERR_HTTP_404` · `ERR_VALIDATION` (field errors from the form, shown to the model) · `ERR_NOT_FOUND` · `ERR_POLICY` (blocked by the permission layer) ·
+`ERR_NO_ELEMENT` (target not on the page, take a snapshot) · `ERR_DOWNLOAD` (link is not a PDF) · `ERR_LOGIN_FAILED` (wrong credentials, not retried) ·
+`ERR_NEEDS_HUMAN` (ask_human / request_approval with nobody to answer, the run stops as needs_human).
 
 ## How the main task flows through the tools
 

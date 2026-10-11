@@ -1,8 +1,6 @@
 """Checker: did the step do what it expected? Code first, model only for fuzzy cases."""
 from dataclasses import dataclass
 
-from .tools.base import ToolResult
-
 RETRYABLE = {"ERR_HTTP_5XX", "ERR_HTTP_503", "ERR_NAV_FAILED", "ERR_BLANK_PAGE", "ERR_TIMEOUT",
              "ERR_LOGIN_TRANSIENT", "ERR_PDF_UNREADABLE"}
 RECOVERABLE = {"ERR_INTERCEPTED": "dismiss_overlay", "ERR_SESSION_EXPIRED": "relogin"}
@@ -57,6 +55,12 @@ def check(result, expect, retries, max_retries):
         if retries < max_retries:
             return Verdict("retry", code)
         return Verdict("escalate", f"{code} still failing after {retries} retries")
+
+    # the model picked a wrong element name: give it the error and let it try again before changing the plan
+    if code == "ERR_NO_ELEMENT":
+        if retries < max_retries:
+            return Verdict("retry", code)
+        return Verdict("replan", code)
 
     # "not found" from finance_get_invoice is a normal answer: the save did not land, so a retry is safe.
     # (a missing page in the browser is ERR_HTTP_404, a different code)

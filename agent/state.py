@@ -27,6 +27,9 @@ class RunState:
     steps_used: int = 0
     verified: bool = False
     status: str = "running"  # running|success|partial|failed|needs_human
+    answer: str = ""         # the summary the model gave to finish(): the answer to the goal
+    answer_evidence: list = field(default_factory=list)
+    notes: list = field(default_factory=list)   # short copies of earlier observations, the model only sees the last one in full
 
     def remember(self, key, value, evidence):
         self.memory[key] = Fact(key, value, evidence)

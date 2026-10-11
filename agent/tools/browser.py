@@ -32,8 +32,8 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from ..config import Config
 from .base import ToolResult, tool
 
-MAX_ELEMENTS = 40        # keeps a snapshot short (TOOLS.md: under ~3,000 characters)
-TEXT_CHARS = 500
+MAX_ELEMENTS = 25        # keeps a snapshot short (TOOLS.md: under ~3,000 characters)
+TEXT_CHARS = 1200
 PAUSE_AFTER_ERROR = 0.5  # Chromium needs a moment after a dropped connection
 
 
@@ -62,7 +62,9 @@ class BrowserSession:
             return
         self.playwright = sync_playwright().start()
         headless = os.environ.get("HEADLESS", "1") != "0"   # HEADLESS=0 shows the browser window
-        self.chromium = self.playwright.chromium.launch(headless=headless)
+        # SLOW_MO_MS=500 waits half a second after every browser action, so you can follow it on screen
+        slow_mo = int(os.environ.get("SLOW_MO_MS", "0"))
+        self.chromium = self.playwright.chromium.launch(headless=headless, slow_mo=slow_mo)
         self.context = self.chromium.new_context()
         self.context.set_default_timeout(self.cfg.step_timeout_s * 1000)
 
@@ -284,14 +286,26 @@ def browser_open(app, path="/"):
 
 
 def read_elements(page):
-    """The clickable things on the page, in page order. Returns (elements, more_were_left_out)."""
+    """The clickable things in the main part of the page, in page order, and the menu links around it.
+    Returns (elements, more_were_left_out, menu_testids)."""
     role_of_tag = {"a": "link", "button": "button", "input": "textbox", "select": "select", "textarea": "textbox"}
 
+    # Both sites keep the real content in <main>. The header and sidebar are the same on every page, so
+    # their links only get listed by name and the element budget goes to the content.
+    menu = []
+    content = page.locator("body")
+    if page.locator("main").count() > 0:
+        content = page.locator("main")
+        for element in page.locator("header a[href], header button, nav a[href]").all():
+            testid = element.get_attribute("data-testid")
+            if testid and element.is_visible():
+                menu.append(testid)
+
     elements = []
-    for element in page.locator("a[href], button, input, select, textarea").all():
+    for element in content.locator("a[href], button, input, select, textarea").all():
         # page order matters: on the inbox the search box comes before 30 email links
         if len(elements) >= MAX_ELEMENTS:
-            return elements, True
+            return elements, True, menu
         if not element.is_visible():
             continue
         input_type = element.get_attribute("type")
@@ -300,13 +314,15 @@ def read_elements(page):
 
         tag = element.evaluate("e => e.tagName.toLowerCase()")   # the one bit of JavaScript we need
         role = role_of_tag[tag]
+        testid = element.get_attribute("data-testid") or ""
 
-        item = {"role": role}
-        item["testid"] = element.get_attribute("data-testid") or ""
+        item = {"testid": testid}
+        if role != "link":
+            item["role"] = role                  # links are the common case, so they don't say so
         if role in ("link", "button"):
             item["text"] = element.inner_text().strip()[:40]
-        if role == "link":
-            item["href"] = element.get_attribute("href") or ""
+        if role == "link" and testid == "":
+            item["href"] = element.get_attribute("href") or ""     # a testid is enough to click it
         if role in ("textbox", "select"):
             # boxes have no text of their own, the placeholder or field name says what they are for
             item["label"] = (element.get_attribute("aria-label")
@@ -323,7 +339,7 @@ def read_elements(page):
             item["enabled"] = False
 
         # nothing to tell the model about this one
-        if not (item["testid"] or item.get("text") or item.get("label") or item.get("href")):
+        if not (testid or item.get("text") or item.get("label") or item.get("href")):
             continue
 
         # drop empty values to keep the snapshot short
@@ -332,7 +348,7 @@ def read_elements(page):
             if value != "":
                 short_item[key] = value
         elements.append(short_item)
-    return elements, False
+    return elements, False, menu
 
 
 @tool("browser_snapshot", "Compact view of the page: text + interactive elements", {"app": "mail|finance"})
@@ -361,8 +377,11 @@ def browser_snapshot(app):
     if page_is_blank(page):
         return ToolResult.fail("ERR_BLANK_PAGE", "page came back empty, reload it")
 
-    elements, more = read_elements(page)
-    text = " ".join(page.inner_text("body").split())   # squeeze all whitespace into single spaces
+    elements, more, menu = read_elements(page)
+    text_source = page.locator("body")
+    if page.locator("main").count() > 0:
+        text_source = page.locator("main")      # the content, without the header and menu
+    text = " ".join(text_source.first.inner_text().split())   # squeeze all whitespace into single spaces
 
     # form errors have testids like error-invoice_no (error-page is the HTTP 500 page, not a field)
     form_errors = {}
@@ -372,14 +391,17 @@ def browser_snapshot(app):
             continue
         form_errors[testid.replace("error-", "", 1)] = element.inner_text().strip()[:120]
 
+    # The executor only receives the first ~3000 characters. The small, important things come first so
+    # that a long page can only cut off the end of the element list.
     data = {
         "url": page.url,
         "title": page.title(),
-        "text": text[:TEXT_CHARS],
-        "elements": elements,
+        "banner": banner_is_visible(page),
         "flashes": read_flashes(page),
         "errors": form_errors,
-        "banner": banner_is_visible(page),
+        "menu": menu,
+        "text": text[:TEXT_CHARS],
+        "elements": elements,
     }
     if more:
         data["more_elements"] = True

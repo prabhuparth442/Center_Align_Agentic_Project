@@ -16,9 +16,13 @@ class Plan(BaseModel):
 
 
 PLAN_PROMPT = """You plan office tasks done through a browser. Tools:\n{tools}\n
-Return JSON {{"steps":[{{"intent":..., "expect":...}}]}}. Max 12 steps. 
+Return JSON {{"steps":[{{"intent":..., "expect":...}}]}}. Max 30 steps.
+- Every step is exactly ONE tool call. Name the tool in the intent, e.g. "browser_open mail /inbox".
+  Reading a page (browser_snapshot) is a step of its own.
 - Never plan to guess values. Always read them from documents/pages first.
-- Each 'expect' must be a concrete, verifiable postcondition (e.g. element visible, URL changed, fact in memory)."""
+- Each 'expect' must be a concrete, verifiable postcondition (e.g. element visible, URL changed, fact in memory).
+- The step that saves or submits something must have the word "saved" in double quotes inside expect,
+  because that is the word the finance app shows after a real save."""
 
 REPLAN_PROMPT = """A browser automation plan failed mid-execution. Revise the plan to reach the original goal.
 
@@ -41,7 +45,7 @@ Failed Step:
 Rules:
 1. DO NOT repeat already completed actions, especially irreversible writes/submissions.
 2. Formulate alternative steps to bypass or resolve the failure cause.
-3. Keep the remaining steps concise (max 10).
+3. Same step format: one tool call per step, tool named in the intent. Max 25 steps.
 Return JSON {{"steps":[{{"intent":..., "expect":...}}]}} covering ONLY the remaining steps needed to finish."""
 
 

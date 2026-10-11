@@ -17,9 +17,8 @@ This file defines the three building blocks every tool shares:
 Read this file first; the other tool files just use these pieces.
 """
 # `dataclass` auto-generates __init__/__repr__ for simple data-holding classes,
-# so we don't have to write boilerplate. `field` is imported for dataclass options
-# (currently unused, kept for when we need default_factory lists/dicts).
-from dataclasses import dataclass, field
+# so we don't have to write boilerplate.
+from dataclasses import dataclass
 # `Any` = "any type allowed"; `Callable` = "something you can call like a function".
 # Used only for type hints (they help readers and IDEs, Python doesn't enforce them).
 from typing import Any, Callable
