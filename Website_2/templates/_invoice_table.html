@@ -1,0 +1,15 @@
+<table id="invoices-table" data-testid="invoices-table" class="mail-table">
+  <thead><tr><th>Invoice No</th><th>Vendor</th><th>Invoice Date</th><th class="num">Amount (INR)</th><th>Due Date</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for i in invoices %}
+    <tr id="invoice-row-{{ i.invoice_no }}" data-testid="invoice-row-{{ i.invoice_no }}">
+      <td><a href="{{ url_for('invoice_detail', invoice_no=i.invoice_no) }}" id="invoice-link-{{ i.invoice_no }}" data-testid="invoice-link-{{ i.invoice_no }}">{{ i.invoice_no }}</a></td>
+      <td>{{ i.vendor_name }}</td>
+      <td class="nowrap">{{ i.invoice_date }}</td>
+      <td class="num">{{ i.amount_paise|inr }}</td>
+      <td class="nowrap">{{ i.due_date }}</td>
+      <td><span class="pill {{ 'pill-ok' if i.status == 'Paid' else 'pill-warn' }}">{{ i.status }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
