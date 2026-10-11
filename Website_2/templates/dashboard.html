@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="tiles">
+  <div class="card tile"><div class="muted">Active vendors</div><div class="big-num" data-testid="tile-vendors">{{ active_vendors }}</div></div>
+  <div class="card tile"><div class="muted">Invoices</div><div class="big-num" data-testid="tile-invoices">{{ by_status.values()|sum(attribute="count") }}</div></div>
+  <div class="card tile"><div class="muted">Overdue (unpaid)</div><div class="big-num" data-testid="tile-overdue">{{ overdue|length }}</div></div>
+  <div class="card tile"><div class="muted">As of</div><div class="big-num small">{{ today }}</div></div>
+</div>
+<h2>By status</h2>
+<table class="mail-table" data-testid="status-table">
+  <thead><tr><th>Status</th><th>Invoices</th><th class="num">Total (INR)</th></tr></thead>
+  <tbody>{% for s, d in by_status.items() %}<tr><td>{{ s }}</td><td>{{ d.count }}</td><td class="num">{{ d.paise|inr }}</td></tr>{% endfor %}</tbody>
+</table>
+<h2>Recent invoices</h2>
+{% set invoices = rows %}
+{% include "_invoice_table.html" %}
+{% endblock %}
