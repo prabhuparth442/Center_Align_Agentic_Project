@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ inv.invoice_no }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('invoices') }}">&larr; Invoices</a></p>
+<div class="card">
+  <h1>Invoice <span id="detail-invoice_no" data-testid="detail-invoice_no">{{ inv.invoice_no }}</span></h1>
+  <dl class="headers wide">
+    <dt>Vendor</dt><dd id="detail-vendor" data-testid="detail-vendor">{{ inv.vendor_name }}</dd>
+    <dt>Vendor ID</dt><dd><a id="detail-vendor_id" data-testid="detail-vendor_id" href="{{ url_for('vendor_detail', vendor_id=inv.vendor_id) }}">{{ inv.vendor_id }}</a></dd>
+    <dt>Invoice date</dt><dd id="detail-invoice_date" data-testid="detail-invoice_date">{{ inv.invoice_date }}</dd>
+    <dt>Amount (INR)</dt><dd id="detail-amount" data-testid="detail-amount">{{ inv.amount_paise|inr }}</dd>
+    <dt>Due date</dt><dd id="detail-due_date" data-testid="detail-due_date">{{ inv.due_date }}</dd>
+    <dt>Status</dt><dd id="detail-status" data-testid="detail-status">{{ inv.status }}</dd>
+    <dt>PO number</dt><dd id="detail-po_number" data-testid="detail-po_number">{{ inv.po_number }}</dd>
+    <dt>Notes</dt><dd id="detail-notes" data-testid="detail-notes">{{ inv.notes }}</dd>
+    <dt>Created by</dt><dd id="detail-created_by" data-testid="detail-created_by">{{ inv.created_by }}</dd>
+    <dt>Created at</dt><dd id="detail-created_at" data-testid="detail-created_at">{{ inv.created_at }}</dd>
+  </dl>
+</div>
+{% endblock %}
