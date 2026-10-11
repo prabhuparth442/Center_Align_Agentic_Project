@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('contacts') }}">&larr; Contacts</a></p>
+<div class="card">
+  <h1 data-testid="contact-name">{{ name }}</h1>
+  <p class="muted" data-testid="contact-address">{{ addr }}</p>
+</div>
+<h2>Messages</h2>
+{% set folder = '' %}
+{% include "_list.html" %}
+{% endblock %}
