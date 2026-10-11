@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block bodyclass %}login-page{% endblock %}
+{% block topbar %}<div class="login-wrap">{% endblock %}
+{% block bottom %}</div>{% endblock %}
+{% block content %}
+<div class="card login-card">
+  <div class="logo big">F</div>
+  <h1>Sign in</h1>
+  <p class="muted">Finance System</p>
+  <form method="post" action="{{ url_for('login') }}" data-testid="login-form">
+    <p><label for="username">Username</label>
+       <input type="text" id="username" name="username" data-testid="username" autocomplete="username"></p>
+    <p><label for="password">Password</label>
+       <input type="password" id="password" name="password" data-testid="password" autocomplete="current-password"></p>
+    <p><button type="submit" class="btn" id="login-submit" data-testid="login-submit">Sign in</button></p>
+  </form>
+</div>
+{% endblock %}
