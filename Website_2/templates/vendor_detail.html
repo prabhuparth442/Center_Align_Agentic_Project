@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ v.name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('vendors') }}">&larr; Vendors</a></p>
+<div class="card">
+  <h1 data-testid="vendor-name">{{ v.name }}</h1>
+  <dl class="headers wide">
+    <dt>Vendor ID</dt><dd data-testid="vendor-id">{{ v.vendor_id }}</dd>
+    <dt>Status</dt><dd data-testid="vendor-status">{{ v.status }}</dd>
+    <dt>Invoices</dt><dd data-testid="vendor-invoice-count">{{ invoices|length }}</dd>
+    <dt>Total billed (INR)</dt><dd data-testid="vendor-total">{{ total|inr }}</dd>
+  </dl>
+</div>
+<h2>Invoices from this vendor</h2>
+{% include "_invoice_table.html" %}
+{% if not invoices %}<p class="empty" data-testid="vendor-no-invoices">No invoices yet.</p>{% endif %}
+{% endblock %}
