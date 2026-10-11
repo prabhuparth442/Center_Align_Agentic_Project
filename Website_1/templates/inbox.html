@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ FOLDERS[folder] }}{% endblock %}
+{% block content %}
+{% set args = {} if folder == 'inbox' else {'name': folder} %}
+<h1>{{ FOLDERS[folder] }}</h1>
+<form method="get" action="{{ url_for(endpoint, **args) }}" class="search" data-testid="search-form">
+  <label for="q" class="sr">Search</label>
+  <input type="text" id="q" name="q" value="{{ q }}" placeholder="Search sender or subject" data-testid="search-input">
+  {% if request.args.get('sort') %}<input type="hidden" name="sort" value="{{ request.args.get('sort') }}">{% endif %}
+  <button type="submit" class="btn" id="search-submit" data-testid="search-submit">Search</button>
+</form>
+<p class="sortbar">
+  <span id="inbox-count" data-testid="inbox-count">{{ emails|length }} message{{ '' if emails|length == 1 else 's' }}</span>
+  <span class="spacer"></span>
+  Sort:
+  <a href="{{ url_for(endpoint, q=q or None, **args) }}" id="sort-newest" data-testid="sort-newest" class="{{ '' if request.args.get('sort') == 'date_asc' else 'active' }}">Newest first</a> |
+  <a href="{{ url_for(endpoint, q=q or None, sort='date_asc', **args) }}" id="sort-oldest" data-testid="sort-oldest" class="{{ 'active' if request.args.get('sort') == 'date_asc' }}">Oldest first</a>
+</p>
+{% include "_list.html" %}
+{% if not emails %}<p id="inbox-empty" data-testid="inbox-empty" class="empty">No messages found.</p>{% endif %}
+{% endblock %}
