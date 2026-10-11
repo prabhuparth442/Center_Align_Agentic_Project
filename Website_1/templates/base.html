@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mail{% endblock %} - Mail &amp; Documents Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% block bodyclass %}app{% endblock %}">
+{% if banner_active %}
+<div class="modal-backdrop" data-testid="maintenance-banner" id="maintenance-banner" role="dialog" aria-modal="true" aria-label="Notice">
+  <div class="modal">
+    <p data-testid="banner-text">Scheduled maintenance tonight 23:00-23:30 IST. Some pages may be slow.</p>
+    <form method="post" action="/banner/dismiss">
+      <button type="submit" class="btn" data-testid="banner-dismiss" id="banner-dismiss">Got it</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% block topbar %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('inbox') }}"><span class="logo">M</span> Mail &amp; Documents</a>
+    <span class="who">Accounts Team &middot; accounts@mycompany.example</span>
+    <form method="post" action="{{ url_for('logout') }}" class="inline">
+      <button type="submit" class="btn btn-ghost" data-testid="logout" id="logout">Log out</button>
+    </form>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Folders">
+      <a href="{{ url_for('inbox') }}" id="nav-inbox" data-testid="nav-inbox" class="{{ 'active' if folder == 'inbox' }}">Inbox <span class="count" data-testid="count-inbox">{{ folder_counts.get('inbox', 0) }}</span></a>
+      <a href="{{ url_for('folder_view', name='sent') }}" id="nav-sent" data-testid="nav-sent" class="{{ 'active' if folder == 'sent' }}">Sent <span class="count">{{ folder_counts.get('sent', 0) }}</span></a>
+      <a href="{{ url_for('folder_view', name='archive') }}" id="nav-archive" data-testid="nav-archive" class="{{ 'active' if folder == 'archive' }}">Archive <span class="count">{{ folder_counts.get('archive', 0) }}</span></a>
+      <hr>
+      <a href="{{ url_for('contacts') }}" id="nav-contacts" data-testid="nav-contacts">Contacts</a>
+      <a href="{{ url_for('help_page') }}" id="nav-help" data-testid="nav-help">Help</a>
+    </nav>
+    <main>
+{% endblock %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash flash-{{ 'success' if cat == 'success' else 'error' }}" data-testid="flash">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+{% block bottom %}
+    </main>
+  </div>
+{% endblock %}
+</body>
+</html>
