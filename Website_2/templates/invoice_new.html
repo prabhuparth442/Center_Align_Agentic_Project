@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+{% block content %}
+{% macro err(field) %}{% if errors.get(field) %}<span class="field-error" id="error-{{ field }}" data-testid="error-{{ field }}">{{ errors[field] }}</span>{% endif %}{% endmacro %}
+<h1>New Invoice</h1>
+<form method="post" action="{{ url_for('invoice_new') }}" data-testid="invoice-form" class="card form">
+  {% set button %}<p class="actions"><button type="submit" class="btn" id="submit-invoice" data-testid="submit-invoice">Save Invoice</button></p>{% endset %}
+  {% if move_submit %}{{ button }}{% endif %}
+  <p><label for="vendor_id">Vendor</label>
+    <select id="vendor_id" name="vendor_id" data-testid="field-vendor">
+      <option value="">-- select --</option>
+      {% for v in vendors %}<option value="{{ v.vendor_id }}" {{ 'selected' if form.vendor_id == v.vendor_id }}>{{ v.name }}</option>{% endfor %}
+    </select>{{ err('vendor_id') }}</p>
+  <p><label for="invoice_no">Invoice Number</label>
+    <input type="text" id="invoice_no" name="invoice_no" value="{{ form.invoice_no }}" data-testid="field-invoice-no">{{ err('invoice_no') }}</p>
+  <p><label for="invoice_date">Invoice Date</label>
+    <input type="text" id="invoice_date" name="invoice_date" value="{{ form.invoice_date }}" placeholder="YYYY-MM-DD" data-testid="field-invoice-date">{{ err('invoice_date') }}</p>
+  <p><label for="amount">{{ 'Total Payable (INR)' if rename else 'Invoice Amount' }}</label>
+    <input type="text" id="amount" name="amount" value="{{ form.amount }}" data-testid="field-amount">{{ err('amount') }}</p>
+  <p><label for="due_date">{{ 'Payment Due By' if rename else 'Due Date' }}</label>
+    <input type="text" id="due_date" name="due_date" value="{{ form.due_date }}" placeholder="YYYY-MM-DD" data-testid="field-due-date">{{ err('due_date') }}</p>
+  <p><label for="po_number">PO Number</label>
+    <input type="text" id="po_number" name="po_number" value="{{ form.po_number }}" data-testid="field-po">{{ err('po_number') }}</p>
+  <p><label for="notes">Notes</label>
+    <textarea id="notes" name="notes" rows="4" data-testid="field-notes">{{ form.notes }}</textarea>{{ err('notes') }}</p>
+  {% if not move_submit %}{{ button }}{% endif %}
+</form>
+{% endblock %}
