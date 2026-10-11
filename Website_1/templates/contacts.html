@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Contacts{% endblock %}
+{% block content %}
+<h1>Contacts</h1>
+<p class="muted">{{ contacts|length }} contacts</p>
+<table id="contacts-table" data-testid="contacts-table" class="mail-table">
+  <thead><tr><th>Name</th><th>Address</th><th>Messages</th><th>Last message</th></tr></thead>
+  <tbody>
+  {% for c in contacts %}
+    <tr data-testid="contact-row-{{ loop.index }}">
+      <td><a href="{{ url_for('contact_view', addr=c.email) }}" data-testid="contact-link-{{ loop.index }}">{{ c.name }}</a></td>
+      <td>{{ c.email }}</td><td>{{ c.count }}</td><td class="nowrap">{{ c.last }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
