@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set folder = e.folder %}
+{% block title %}{{ e.subject }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('inbox') if e.folder == 'inbox' else url_for('folder_view', name=e.folder) }}" data-testid="back-to-folder">&larr; {{ folder_label }}</a></p>
+<div class="card">
+  <h1 id="email-subject" data-testid="email-subject">{{ e.subject }}</h1>
+  <dl class="headers">
+    <dt>From</dt><dd id="email-from" data-testid="email-from">{{ e.sender_name }} &lt;{{ e.sender_email }}&gt;</dd>
+    <dt>To</dt><dd id="email-to" data-testid="email-to">{{ e.recipient_name }} &lt;{{ e.recipient_email }}&gt;</dd>
+    <dt>Date</dt><dd id="email-date" data-testid="email-date">{{ e.date }}</dd>
+    <dt>Folder</dt><dd>{{ folder_label }}</dd>
+  </dl>
+  <div id="email-body" class="body" data-testid="email-body">{{ e.body }}</div>
+  {% if e.attachment_filename %}
+  <div class="attachment">
+    <span class="tag">PDF</span>
+    <span id="attachment-name" data-testid="attachment-name">{{ e.attachment_filename }}</span>
+    <a href="{{ url_for('attachment_pdf', email_id=e.id) }}" id="attachment-link" data-testid="attachment-link" class="btn">Download</a>
+    <a href="{{ url_for('attachment_preview', email_id=e.id) }}" id="attachment-preview" data-testid="attachment-preview" class="btn btn-ghost">Preview</a>
+  </div>
+  {% endif %}
+</div>
+<p class="pager">
+  {% if newer %}<a href="{{ url_for('email_view', email_id=newer) }}" data-testid="email-newer">&larr; Newer</a>{% endif %}
+  <span class="spacer"></span>
+  <a href="{{ url_for('contact_view', addr=contact) }}" data-testid="contact-link">All messages with this contact</a>
+  <span class="spacer"></span>
+  {% if older %}<a href="{{ url_for('email_view', email_id=older) }}" data-testid="email-older">Older &rarr;</a>{% endif %}
+</p>
+{% endblock %}
