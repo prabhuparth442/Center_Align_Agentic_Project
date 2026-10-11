@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Finance{% endblock %} - Finance System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% block bodyclass %}app{% endblock %}">
+{% if banner_active %}
+<div class="modal-backdrop" data-testid="maintenance-banner" id="maintenance-banner" role="dialog" aria-modal="true" aria-label="Notice">
+  <div class="modal">
+    <p data-testid="banner-text">Scheduled maintenance tonight 23:00-23:30 IST. Some pages may be slow.</p>
+    <form method="post" action="/banner/dismiss">
+      <button type="submit" class="btn" data-testid="banner-dismiss" id="banner-dismiss">Got it</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% block topbar %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('invoices') }}"><span class="logo">F</span> Finance System</a>
+    <span class="who">finance_user &middot; as of {{ today_str }}</span>
+    <form method="post" action="{{ url_for('logout') }}" class="inline">
+      <button type="submit" class="btn btn-ghost" data-testid="logout" id="logout">Log out</button>
+    </form>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Main">
+      <a href="{{ url_for('dashboard') }}" id="nav-dashboard" data-testid="nav-dashboard">Dashboard</a>
+      <a href="{{ url_for('vendors') }}" id="nav-vendors" data-testid="nav-vendors">Vendors</a>
+      <a href="{{ url_for('invoices') }}" id="nav-invoices" data-testid="nav-invoices">Invoices</a>
+      <a href="{{ url_for('invoice_new') }}" id="nav-new-invoice" data-testid="nav-new-invoice">New Invoice</a>
+      <hr>
+      <a href="{{ url_for('help_page') }}" id="nav-help" data-testid="nav-help">Help</a>
+    </nav>
+    <main>
+{% endblock %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash flash-{{ 'success' if cat == 'success' else 'error' }}" data-testid="flash">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+{% block bottom %}
+    </main>
+  </div>
+{% endblock %}
+</body>
+</html>
