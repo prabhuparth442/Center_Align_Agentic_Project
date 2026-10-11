@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% set folder = 'inbox' %}
+{% block title %}{{ e.attachment_filename }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('email_view', email_id=e.id) }}">&larr; Back to email</a></p>
+<h1>{{ e.attachment_filename }}</h1>
+<div id="attachment-text" class="doc" data-testid="attachment-text">
+{%- for line in lines %}<div>{{ line }}</div>{% endfor -%}
+</div>
+<p><a href="{{ url_for('attachment_pdf', email_id=e.id) }}" class="btn" data-testid="preview-download">Download PDF</a></p>
+{% endblock %}
