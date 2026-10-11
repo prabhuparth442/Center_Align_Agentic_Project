@@ -1,0 +1,8 @@
+# Agent and eval harness. The mock apps have their own requirements files in Website_1/ and Website_2/.
+openai
+pydantic
+playwright
+pdfplumber
+requests
+python-dotenv
+pytest
