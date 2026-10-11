@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block content %}
+<h1>Help</h1>
+<div class="card" data-testid="help-content">
+  <h2>Folders</h2>
+  <ul>
+    <li><a href="{{ url_for('inbox') }}">Inbox</a>: messages received by the Accounts Team.</li>
+    <li><a href="{{ url_for('folder_view', name='sent') }}">Sent</a>: replies sent by the Accounts Team.</li>
+    <li><a href="{{ url_for('folder_view', name='archive') }}">Archive</a>: older messages kept for reference.</li>
+  </ul>
+  <h2>Attachments</h2>
+  <p>Messages marked <span class="tag">PDF</span> have a document attached. Open the message to download the PDF or preview its text.</p>
+  <h2>Contacts</h2>
+  <p>The <a href="{{ url_for('contacts') }}">Contacts</a> page lists everyone you exchange mail with. Select a contact to see all messages with them.</p>
+  <h2>Searching</h2>
+  <p>Search matches the sender name, sender address or subject, ignoring case.</p>
+</div>
+{% endblock %}
