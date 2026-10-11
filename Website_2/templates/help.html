@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block content %}
+<h1>Help</h1>
+<div class="card" data-testid="help-content">
+  <h2>Entering an invoice</h2>
+  <p>Use <a href="{{ url_for('invoice_new') }}">New Invoice</a>. Amounts must be plain numbers such as 118000.00 (no commas or symbols). Dates use YYYY-MM-DD.</p>
+  <h2>Vendors</h2>
+  <p>Only active vendors can be selected. See all vendors, including inactive ones, on the <a href="{{ url_for('vendors') }}">Vendors</a> page. A vendor that is not listed must be requested before an invoice can be entered.</p>
+  <h2>Invoices</h2>
+  <p>Saved invoices start as Pending Approval and cannot be edited or deleted from this screen.</p>
+</div>
+{% endblock %}
