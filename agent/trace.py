@@ -30,6 +30,17 @@ class Trace:
                 events.append(event)
         return events
 
+    def stop_reason(self):
+        """Why the run ended without success, taken from the trace. Empty if the trace doesn't say."""
+        for event in reversed(self.events()):
+            if event["kind"] in ("escalate", "budget"):
+                return event["reason"]
+            if event["kind"] == "approval":
+                answer = event.get("data")
+                if not event.get("ok") or not answer or not answer.get("approved"):
+                    return f"approval not given ({event.get('reason')})"
+        return ""
+
     def report(self, state, tokens=None):
         """Write report.md: goal, plan, steps, evidence, verifier result, tokens, status."""
         if state.verified:
@@ -39,8 +50,12 @@ class Trace:
         lines = [f"# Run {state.run_id}", "",
                  f"Goal: {state.goal}", f"Status: {state.status}",
                  f"Verified by read-back: {verified_text}"]
+        lines.append(f"Tool calls: {state.steps_used}, replans: {state.replans}")
         if tokens is not None:
             lines.append(f"Tokens used: {tokens}")
+        reason = self.stop_reason()
+        if reason != "" and state.status != "success":
+            lines.append(f"Stopped because: {reason}")
 
         lines += ["", "## Plan"]
         number = 1
