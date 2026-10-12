@@ -1,20 +1,9 @@
-"""Read-only read-back tools. Independent of the UI path that did the write.
+"""Read-only read-back tools. They ask the finance JSON API, not the page that did the write.
 
-WHY THIS FILE EXISTS
---------------------
-After the agent submits an invoice through the web form, how do we know it was really saved?
-We CANNOT trust the page: several injected faults make the UI lie or be ambiguous:
-  * silent_save_fail   -> shows "Invoice saved" but nothing was stored (false success)
-  * save_then_500_once -> shows an error page but the invoice WAS stored (ambiguous failure)
-So we ask the system of record a second way: the finance app's JSON API (/api/invoices...).
-That is "read-back". It is "independent of the UI path" = it doesn't go through the form/page
-that might be lying.
-
-These tools are strictly READ-ONLY (no `writes=True`), so they can be called any time, and the
-permission layer requires them before any retry of a submit (the "idempotency" rule: never
-re-submit blindly or you create a duplicate invoice).
-
-Status: all three tools are implemented. The TODO comments stay, with a short DONE note under each.
+The page can lie: silent_save_fail shows "Invoice saved" with nothing stored, save_then_500_once shows an error
+page although the invoice WAS stored. So after a submit the system of record is asked a second way. These tools
+never write, and policy.py makes a read-back come before any second submit (no blind resubmit, no duplicate).
+The TODO comments stay, with a short DONE note under each.
 """
 from urllib.parse import quote
 

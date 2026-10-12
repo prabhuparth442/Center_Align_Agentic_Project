@@ -1,21 +1,6 @@
-"""Control tools. Several are handled by the loop itself (they need RunState).
-
-WHY THIS FILE EXISTS
---------------------
-The browser/document/API tools act on the OUTSIDE world. These "control" tools act on the
-AGENT'S OWN RUN: remembering facts, asking a person, asking for permission, and ending.
-
-WHY THEY WERE STUBS THAT `raise NotImplementedError`
-----------------------------------------------------
-Each needs access to the current run's state (RunState in state.py: stored facts, whether the
-verifier passed, the audit trace...). A plain decorated function has no access to that, so
-loop.py will intercept these tool names and handle them itself with the state attached
-(see the TODO in loop.py: "bind RunState for control tools"). They are still *registered* here
-so they appear in the tool menu shown to the LLM (describe_tools in base.py).
-
-Status: all five tools are implemented. Instead of the loop intercepting the names, it calls
-bind(state, trace) once at the start of a run and the tools use what was bound (CTX below). The TODO
-comments stay, with a short DONE note under each.
+"""Control tools: they act on the agent's own run, not on the outside world.
+Remember facts, ask a person, ask for permission, end the run. loop.py calls bind(state, trace, oracle) once per
+run and the tools reach the run through CTX below. The TODO comments stay, with a short DONE note under each.
 """
 from ..policy import is_submit
 from .base import ToolResult, tool
@@ -143,12 +128,9 @@ def request_approval(action_summary, risk):
 # read back and matches). So the model cannot just *claim* it worked - code checks it.
 # `evidence` is the list of proofs backing the claim (read-back record, quotes, statuses).
 #
-# DONE: the summary is the ANSWER to the user's goal: it is stored on the state and shown at the top of the
-# report and at the end of the run, so it has to hold the real findings. Only a run that actually clicked
-# Save on the invoice form must pass the read-back before "success" is accepted; the verifier is run here so
-# the model can't skip it. A question-type run (no write) can finish as success without it. If the
-# read-back fails, success is refused and the run keeps going. The loop should stop once state.status is no
-# longer "running".
+# DONE: the summary is the ANSWER to the user's goal (shown at the top of the report), so it holds real findings.
+# A run that clicked Save must pass the read-back before "success" is accepted; the verifier runs here so the
+# model can't skip it. A question-type run (no write) can finish as success without it.
 @tool("finish", "End the run. summary = the final ANSWER to the user's request, written for the user with "
                 "the real findings (names, numbers, dates), not a list of what you did. After an invoice "
                 "was submitted, 'success' is refused unless the read-back matched",
@@ -158,6 +140,8 @@ def finish(status, summary, evidence):
     if status not in STATUSES:
         return ToolResult.fail("ERR_VALIDATION", f"status must be one of {STATUSES}")
 
+    # KNOWN ISSUE (README K2): "success" is accepted even when plan steps were never run. Only the invoice
+    # case is checked (below). A question-type goal can end "success" after covering just part of it.
     if status == "success" and not state.verified and submit_was_attempted(state):
         # imported here because verifier.py uses the tools, importing at the top would go in a circle
         from ..verifier import verify_invoice

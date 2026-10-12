@@ -1,6 +1,8 @@
 """Checker: did the step do what it expected? Code first, model only for fuzzy cases."""
 from dataclasses import dataclass
 
+# KNOWN ISSUE (README K5): ERR_PDF_UNREADABLE is retried on the same file. If the PDF is really corrupt
+# the retries are wasted; stepping back to download again would be better.
 RETRYABLE = {"ERR_HTTP_5XX", "ERR_HTTP_503", "ERR_NAV_FAILED", "ERR_BLANK_PAGE", "ERR_TIMEOUT",
              "ERR_LOGIN_TRANSIENT", "ERR_PDF_UNREADABLE"}
 RECOVERABLE = {"ERR_INTERCEPTED": "dismiss_overlay", "ERR_SESSION_EXPIRED": "relogin"}
@@ -17,6 +19,9 @@ def backoff_seconds(retries):
     return 2 ** retries
 
 
+# KNOWN ISSUE (README K6): a save that fails but returns a normal page with an error message counts as ok,
+# unless the step's `expect` has a quoted word like "saved". The planner prompt asks for that word, the
+# model can still forget it. The final read-back in the verifier is what catches the miss.
 def missing_quotes(result, expect):
     """Words in "double quotes" inside `expect` that the tool output does not contain."""
     # Only quoted text is checked, it is the one part of a free-text expectation that code can test.

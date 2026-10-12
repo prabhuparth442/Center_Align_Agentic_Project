@@ -26,6 +26,7 @@ def recover(name: str, app: str | None) -> ToolResult:
     if name == "dismiss_overlay":
         #TODO: Add this tool working part then update
         # DONE: the maintenance popup has a "Got it" button, data-testid banner-dismiss, on both apps
+        # KNOWN ISSUE (README K4): the dismiss reloads the page, so a half-filled form is empty afterwards.
         return REGISTRY["browser_click"].fn(app=app or "finance", target="banner-dismiss")
     return ToolResult.fail("ERR_UNKNOWN", f"no such recovery: {name}")
 
@@ -94,6 +95,9 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
     app = None
     blocked_submit = False     # a submit was blocked, so the next finance_get_invoice decides that step
 
+    # One turn of this loop: executor picks ONE tool call -> policy may block or ask for approval -> the tool runs
+    # -> checker gives a verdict (ok / retry / recover / replan / escalate) -> the loop reacts to it.
+    # To debug a run, trace.jsonl has one line per stage of every turn: policy, check, recover, replan.
     while state.step_index < len(state.plan) and state.steps_used < cfg.max_steps:
 
         if state.status != "running":
@@ -106,6 +110,8 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
 
         step = state.plan[state.step_index]
 
+        # KNOWN ISSUE (README K3): only ValueError is caught. An LLMError (network, bad key) crashes the run
+        # here, and also in make_plan above. cli.py catches it and still writes a report, this file does not.
         try:
             action = next_action(llm, state, step, observation)
         except ValueError as e:
@@ -170,6 +176,8 @@ def run(goal: str, cfg: Config | None = None) -> RunState:
         if verdict.kind == "ok" and not_saved:
             observation = "The invoice is not in finance, so the submit did not go through. Submit again."
         elif verdict.kind == "ok":
+            # KNOWN ISSUE (README K1): one OK tool call = one plan step done. If the model needs two calls
+            # for a step (or picks another page than planned) the plan and the real work drift apart.
             state.step_index += 1
             state.retries = 0
             observation = compact(result) if result.ok else f"not found ({result.error_message})"

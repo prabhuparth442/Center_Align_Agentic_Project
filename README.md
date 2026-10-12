@@ -76,7 +76,7 @@ pip install -r requirements.txt && playwright install chromium
 # .env needs LLM_BASE_URL, LLM_API_KEY, PLANNER_MODEL (never commit it)
 python -m agent.cli "Find the latest invoice from Company X Ltd ..."   # live output, Ctrl+C pauses
 python -m agent.cli                # no goal on a terminal: asks for goals one after another
-HEADLESS=0 SLOW_MO_MS=500 python -m agent.cli "..."   # watch the agent's own browser window
+HEADLESS=1 SLOW_MO_MS=0 python -m agent.cli "..."     # hide the browser window / full speed (cli default: visible, 300 ms)
 python eval/run_scenarios.py       # planned: runs scenarios.json, prints a results table (stub today)
 ```
 
@@ -98,23 +98,68 @@ drives the browser; `pdfplumber` reads invoices.
 - Amounts are INR with Indian digit grouping; the finance form accepts plain numbers only.
 - A single logged-in user per app; no real credentials or third-party systems are touched.
 
+## If something breaks: where to look
+
+Every run writes `runs/<time>_<goal>/`. Start with `report.md` (answer, plan, what the agent did, verifier)
+and then `trace.jsonl` (one line per decision: plan, policy, check, recover, replan, verify, finish).
+
+| Symptom | Likely cause | Look at |
+|---|---|---|
+| `ERR_NAV_FAILED` right away, 3 retries, `needs_human` | A mock app is not running (`cli` now checks this first) | `Website_*/app.py` running on 5001 / 5002 |
+| Status `needs_human`, "Stopped because ..." | The checker gave up after retries, a human decision was needed, or the replan budget ended | `agent/checker.py` (`check`), `agent/loop.py` (`try_replan`) |
+| Status `partial`, no answer | The plan ended without a `finish` step | `agent/planner.py` (`PLAN_PROMPT`), `agent/loop.py` end of `run` |
+| Policy `block` in the trace | A submit rule fired (duplicate, credit note, inactive vendor, bad amount, unsupported evidence) | `agent/policy.py` (`check_submit`) |
+| Invoice saved but status not `success` | The read-back differs from what the agent remembered | `agent/verifier.py` (`verify_invoice`), the Verifier section of the report |
+| `ERR_NO_ELEMENT` again and again | The model names an element that is not on the page | `agent/tools/browser.py` (`find_element`, `read_elements`), `data-testid` names in the site templates |
+| Agent saw too little of a page | Snapshot is cut at 3000 characters, 25 elements | `agent/tools/browser.py` (`MAX_ELEMENTS`, `TEXT_CHARS`), `agent/executor.py` (`trim`) |
+| Value rejected as "not in the document" | `grounded_check` did not find the number in the PDF text | `agent/tools/documents.py` (`grounded_check`) |
+| Model call fails or returns bad JSON | Key, model name, or the JSON repair loop | `agent/llm.py` (`structured`), `.env` |
+| Terminal looks stuck | Ctrl+C pauses after the current step (`r` resume, `s` stop); a question is waiting for your answer | `agent/cli.py` (`Front`) |
+
+Errors the tools return are stable codes (`ERR_HTTP_5XX`, `ERR_SESSION_EXPIRED`, `ERR_INTERCEPTED`, ...).
+`docs/TOOLS.md` lists them, and `agent/checker.py` decides retry / recover / replan / escalate per code.
+
+## Known issues
+
+Each issue is also marked in the code with a `KNOWN ISSUE (README Kn)` comment at the place to change.
+
+| # | Issue | Where |
+|---|---|---|
+| K1 | One OK tool call counts as one finished plan step. If the model needs two calls for a step, the plan and the real work drift apart. | `agent/loop.py` (step advance) |
+| K2 | `finish("success")` is accepted even when plan steps were never run. Only invoice entry is checked (by read-back). | `agent/tools/control.py` (`finish`) |
+| K3 | The loop does not catch a failing model call (`LLMError`); `cli.py` does and still writes a report. | `agent/loop.py` (`run`) |
+| K4 | Dismissing the maintenance popup reloads the page, so a half-filled form is lost and must be filled again. | `agent/loop.py` (`recover`) |
+| K5 | `ERR_PDF_UNREADABLE` is retried on the same file instead of downloading again. | `agent/checker.py` (`RETRYABLE`) |
+| K6 | A save that fails but returns a normal page with an error message counts as ok unless the step expects the quoted word "saved". | `agent/checker.py` (`missing_quotes`) |
+| K7 | The verifier only compares the JSON record; the second check on the detail page is not done. | `agent/verifier.py` |
+| K8 | Reasoning "off" (`effort: none`) is confirmed; the value used for "on" (`high`) is not confirmed for this model. | `agent/llm.py` (`chat`) |
+| K9 | `cli.py` plugs into the loop by swapping four names inside `loop.py` for the length of a run. Works, but is the least obvious code. | `agent/cli.py` (`run_in_terminal`) |
+| K10 | `eval/run_scenarios.py` is a stub: the 25 scenarios have never been run as a table. Unit tests are thin (5). | `eval/`, `tests/` |
+| K11 | The model only sees the last 8 observations. On a long task it forgets early pages unless it saved facts with `remember`. | `agent/executor.py` (`MAX_NOTES`) |
+
 ## Known limitations (current)
 
-- There is no results table yet: the 25 scenarios have not been run as a batch, so no autonomy or
-  reliability numbers are claimed. The agent was exercised with a scripted stand-in model against the
-  real apps (about 15 injected faults) and with the real model in a few manual runs.
-- With the real model the plan and the tool calls can drift apart (the plan has one tool call per step,
-  and the model sometimes picks a different page than planned).
-- The maintenance popup is dismissed by the loop, but the dismiss reloads the page, so a half-filled
-  form is lost and has to be filled again.
+- There is no results table yet. The agent was exercised with a scripted stand-in model against the real
+  apps (about 15 injected faults) and with the real model in a few manual runs, so no reliability numbers
+  are claimed.
+- Real-model runs: the question-type goal "recent HR mail" ended with an answer read from the inbox; the full invoice
+  task has not yet been completed end to end with the real model. Earlier real runs stopped honestly with
+  `needs_human` rather than saving a wrong invoice.
+- The agent can reach only the two configured apps (origin check in `agent/policy.py`) and writes only one
+  thing: the new-invoice form. This is on purpose.
 - The environment is a simulation: two apps, one workflow family (invoice intake, posting,
   reconciliation). Generalization to other workflows is untested.
 - Purchase-order / goods-receipt matching and approval routing are not modelled.
+- The apps must be started by hand before a run.
 
-## What would be built next
+## Next steps (in this order)
 
-Write the scenario runner, run the 25 scenarios and publish the results table, record the demo, then add
-PO matching and a second workflow to test generalization.
+1. Run the full invoice task with the real model a few times and fix what stops it (K1, K2 are the likeliest).
+2. Write `eval/run_scenarios.py`, run the 25 scenarios and publish the results table (K10).
+3. Give `loop.run` optional `trace` / `oracle` / `before_step` arguments and delete the swapping in `cli.py` (K9).
+4. Catch model errors in the loop (K3), step back to the download on a bad PDF (K5), and add the detail-page
+   check in the verifier (K7).
+5. Record the demo, then add PO matching and a second workflow to test generalization.
 
 ## AI assistance
 

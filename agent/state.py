@@ -21,7 +21,9 @@ class RunState:
     plan: list[Step] = field(default_factory=list)
     step_index: int = 0
     memory: dict[str, Fact] = field(default_factory=dict)
-    submitted: set[str] = field(default_factory=set)  # invoice numbers already submitted
+    # UPPERCASE invoice numbers whose Save was clicked (even if the page then failed). policy.py blocks a second
+    # submit of any of them. loop.py removes one when finance_get_invoice says it is not there: the idempotency rule.
+    submitted: set[str] = field(default_factory=set)
     retries: int = 0
     replans: int = 0
     steps_used: int = 0

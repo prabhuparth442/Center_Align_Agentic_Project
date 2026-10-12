@@ -13,13 +13,16 @@ q = stop and quit the program. Ctrl+C a second time, or Ctrl+C at a question, st
 It plugs in without editing loop.py: run_in_terminal() swaps in a Trace that also prints, an oracle that asks
 you, and a next_action that checks for a pause. They are put back when the run ends.
 """
+import os
 import signal
 import sys
 import traceback
+import urllib.request
 
 from dotenv import load_dotenv
 
 from . import loop
+from .config import Config
 from .tools import browser, control
 from .trace import Trace, short_args
 
@@ -212,6 +215,19 @@ def end_early(front, status, reason):
     return state
 
 
+def apps_are_up():
+    """Both mock apps must be running before a run, or every browser call ends in ERR_NAV_FAILED."""
+    cfg = Config.from_env()
+    all_up = True
+    for name, url in (("mail", cfg.mail_url), ("finance", cfg.finance_url)):
+        try:
+            urllib.request.urlopen(url.rstrip("/") + "/health", timeout=2)
+        except Exception:
+            print(f"The {name} app is not running at {url}. Start it first (python app.py in its folder).")
+            all_up = False
+    return all_up
+
+
 def run_in_terminal(goal, quiet=False, front=None):
     if front is None:
         front = Front(quiet)
@@ -241,6 +257,8 @@ def run_in_terminal(goal, quiet=False, front=None):
         front.say(f"[{state.step_index + 1}/{len(state.plan)}] {step.intent[:90]}")
         return original_next_action(llm, state, step, observation)
 
+    # KNOWN ISSUE (README K9): this swaps four names inside loop.py and puts them back afterwards. It works
+    # but is the least obvious code in the project. Cleaner: give loop.run optional trace/oracle/before_step arguments.
     loop.Trace = make_trace
     control.bind = bind_with_oracle
     loop.make_plan = planning
@@ -272,12 +290,18 @@ def run_in_terminal(goal, quiet=False, front=None):
 
 def main():
     load_dotenv()
+    # In the terminal the agent's browser window is visible and a little slowed down, so you can follow it.
+    # HEADLESS=1 SLOW_MO_MS=0 in the environment or .env turns this off.
+    os.environ.setdefault("HEADLESS", "0")
+    os.environ.setdefault("SLOW_MO_MS", "300")
     words = [arg for arg in sys.argv[1:] if arg != "-q"]
     quiet = "-q" in sys.argv[1:]
     goal = " ".join(words)
 
     # a goal on the command line, or no terminal to type in: one run, then exit
     if goal or not sys.stdin.isatty():
+        if not apps_are_up():
+            sys.exit(2)
         try:
             state = run_in_terminal(goal or DEFAULT_GOAL, quiet)
         except KeyboardInterrupt:
@@ -297,6 +321,8 @@ def main():
         if answer.lower() in ("q", "quit", "exit"):
             break
 
+        if not apps_are_up():
+            continue
         front = Front(quiet)
         try:
             run_in_terminal(answer or DEFAULT_GOAL, quiet, front)

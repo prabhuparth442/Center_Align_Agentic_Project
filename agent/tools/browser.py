@@ -1,24 +1,9 @@
 """Browser tools (Playwright, DOM-based). One context, one tab per app.
 
-WHY THIS FILE EXISTS
---------------------
-The two mock websites (Website_1 = "mail", Website_2 = "finance") are only usable through
-a browser. These tools are the agent's "hands and eyes" on them:
-  eyes  -> browser_snapshot   (what is on the page right now?)
-  hands -> browser_open / click / fill / select / download / login
-
-KEY TERMS
----------
-* Playwright : a library that remote-controls a real Chromium browser from Python.
-* DOM-based  : we read/act on the page's HTML elements (buttons, inputs) instead of
-               looking at screenshots. Cheaper, faster, and far more reliable.
-* data-testid: an HTML attribute (e.g. data-testid="banner-dismiss") that the mock sites
-               add on purpose, so elements have stable names even when labels/layout change
-               (the `rename_label` / `move_submit_button` faults test exactly this).
-* context    : one browser "profile" (cookies/session shared by all tabs).
-* tab per app: one page for mail, one for finance, so switching apps never loses state.
-
-Status: all tools are implemented. The TODO comments stay, with a short DONE note under each.
+The two mock sites (Website_1 = "mail", Website_2 = "finance") are only usable through a browser. These tools are
+the agent's eyes (browser_snapshot) and hands (open / click / fill / select / download / login). They work on
+HTML elements, not screenshots, and name them by data-testid: stable names the sites add on purpose (the
+rename_label and move_submit_button faults test exactly that). The TODO comments stay, with a short DONE note under each.
 """
 import hashlib
 import os
@@ -82,8 +67,10 @@ class BrowserSession:
     def save_status(self, app, response):
         if not response.request.is_navigation_request():
             return    # images, css and so on
+        # A redirect is not the final answer. Without this check the login POST's 302 would stay as "the status",
+        # and a connection dropped right after it was reported as a blank page instead of ERR_NAV_FAILED.
         if 300 <= response.status < 400:
-            return    # a redirect is not the final answer. If the connection then drops, no status is left
+            return
         self.last_status[app] = response.status
         self.last_retry_after[app] = response.headers.get("retry-after")
 
@@ -451,7 +438,9 @@ def browser_click(app, target):
     except Exception as exc:
         return action_error(exc)
 
-    problem = check_page(app, page, expect_login=(path_before == "/login"))
+    # clicking Logout lands on the login page on purpose, that is not an expired session
+    going_to_login = path_before == "/login" or "logout" in str(target).lower()
+    problem = check_page(app, page, expect_login=going_to_login)
     if problem is not None:
         # keep what the page said. After a submit this keeps a false "Invoice saved" visible
         flashes = read_flashes(page)

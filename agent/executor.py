@@ -8,6 +8,8 @@ from .tools.base import REGISTRY, describe_tools
 
 MAX_OBSERVATION_CHARS = 3000   # TOOLS.md: keep observations compact
 EXTRA_TRIES = 2                # how often a bad tool name / argument goes back to the model
+# KNOWN ISSUE (README K11): the model only gets the last 8 observations (1000 characters each). On a long
+# task it forgets early pages unless it saved them with remember().
 MAX_NOTES = 8                  # how many earlier observations the model gets, shortened
 NOTE_CHARS = 1000
 

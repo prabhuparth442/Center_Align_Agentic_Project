@@ -32,8 +32,11 @@ def fetch_remote_record(invoice_no):
 
 
 def verify_invoice(state, trace=None):
-    """Read the saved invoice back and compare it with state.memory. Logs to the trace.
-    TODO: also open the detail page as a second check."""
+    """The reason "success" means something: the model's own claim is never trusted. This reads the saved record
+    through the API (not the page, which can lie) and compares it field by field with what the agent remembered.
+    Called by control.finish before success is accepted, and by loop.run at the end. Logs to the trace.
+    TODO: also open the detail page as a second check.
+    (README K7: not done, only the JSON record is compared.)"""
     required = ["invoice_no", "vendor_id", "amount", "invoice_date", "due_date"]
     missing = []
     for key in required:

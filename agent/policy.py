@@ -59,6 +59,9 @@ def value_of(state, key):
 
 
 def check_submit(state, cfg):
+    """The gate in front of the one write in this project (Save on the invoice form). Code, not the prompt,
+    decides, so the model cannot talk its way past it. Order matters: hard blocks first, approvals after.
+    To debug a "block" in the trace, read the reason: every return below has its own message."""
     memory = state.memory
 
     # blocks first, approvals after

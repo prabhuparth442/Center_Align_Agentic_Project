@@ -21,6 +21,8 @@ Return JSON {{"steps":[{{"intent":..., "expect":...}}]}}. Max 30 steps.
   Reading a page (browser_snapshot) is a step of its own.
 - Never plan to guess values. Always read them from documents/pages first.
 - Each 'expect' must be a concrete, verifiable postcondition (e.g. element visible, URL changed, fact in memory).
+- The LAST step is always finish, with the real answer to the goal in its summary. Cover every part of the
+  goal (for example both apps) before it.
 - The step that saves or submits something must have the word "saved" in double quotes inside expect,
   because that is the word the finance app shows after a real save."""
 

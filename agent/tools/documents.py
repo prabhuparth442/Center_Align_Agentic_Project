@@ -1,20 +1,9 @@
 """PDF reading and the hallucination guard.
 
-WHY THIS FILE EXISTS
---------------------
-Invoices arrive as PDF attachments. The agent must (1) read the PDF text, then (2) copy values
-(invoice number, amount, dates...) into the finance form. LLMs can "hallucinate" - confidently
-produce a number that is not in the document. Typing a wrong amount into a finance system is
-expensive, so these two tools exist:
-
-  read_pdf       -> get the raw text out of the PDF
-  grounded_check -> PROVE each value really appears in that text before it is ever written
-
-"Grounded" = anchored in the source document. policy.py BLOCKS the write if any field fails.
-
-Status: both tools are implemented. The TODO comments stay, with a short DONE note under each.
+read_pdf gets the text out of the invoice PDF. grounded_check proves that a value really appears in that text
+before it is written to the finance form (a model can invent a plausible amount). policy.py blocks the submit
+without that proof. The TODO comments stay, with a short DONE note under each.
 """
-# `re` = regular expressions (pattern-based text search/replace), used by normalise() below.
 import re
 from pathlib import Path
 

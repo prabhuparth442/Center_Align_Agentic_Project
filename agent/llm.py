@@ -47,6 +47,8 @@ class LLM:
     def chat(self, messages, think):
         # lowercase "none" like the docs say. With a capital N thinking could stay on silently.
         if think:
+            # KNOWN ISSUE (README K8): "none" is confirmed to turn thinking off. "high" for ON is not
+            # confirmed against OpenRouter for this model; if the planner seems not to think, look here first.
             reasoning = {"effort": "high"}
         else:
             reasoning = {"effort": "none"}
