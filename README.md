@@ -69,20 +69,32 @@ python -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirement
 (Windows: use `.venv\Scripts\python` instead of `.venv/bin/python`.) Both apps also take `FAULTS`,
 `PORT` and `APP_TODAY` environment variables; see each folder's README.
 
-Agent (start both mock apps first):
+Agent. Start both mock apps first (two terminals, as above); `agent.cli` checks `/health` of both and
+stops with a message if one is down.
 
 ```bash
 pip install -r requirements.txt && playwright install chromium
-# .env needs LLM_BASE_URL, LLM_API_KEY, PLANNER_MODEL (never commit it)
-python -m agent.cli "Find the latest invoice from Company X Ltd ..."   # live output, Ctrl+C pauses
+# create .env in the project root (never commit it) with:
+#   LLM_BASE_URL=https://openrouter.ai/api/v1
+#   LLM_API_KEY=<your key>
+#   PLANNER_MODEL=<model id, the same model is used for the executor>
+python -m agent.cli "Find the latest invoice from Company X Ltd in the inbox, enter it into the finance system, and confirm when it is done."
 python -m agent.cli                # no goal on a terminal: asks for goals one after another
-HEADLESS=1 SLOW_MO_MS=0 python -m agent.cli "..."     # hide the browser window / full speed (cli default: visible, 300 ms)
-python eval/run_scenarios.py       # planned: runs scenarios.json, prints a results table (stub today)
+python -m agent.cli -q "..."       # quiet: only the final report top
+HEADLESS=1 SLOW_MO_MS=0 python -m agent.cli "..."   # hide the browser window, full speed
+python -m pytest -q tests          # agent unit tests (5)
+python eval/run_scenarios.py       # planned: runs scenarios.json and prints a results table (stub today)
 ```
 
-The agent drives its **own** Chromium window, not the browser tabs you have open, so a page you opened
-by hand will not change. Each run writes `runs/<time>_<goal>/report.md`; the answer is at the top and
-the same top part is printed when the run ends.
+While a run is going: the browser window shown is the agent's **own** Chromium (visible, 300 ms per action by
+default), not the tabs you have open, so a page you opened by hand will not change.
+**Ctrl+C** pauses after the current step: `r` resume, `s` stop and write the report, `q` stop and quit.
+A second Ctrl+C, or Ctrl+C while the agent asks you a question, stops right away.
+Each run writes `runs/<time>_<goal>/report.md` (answer on top, then plan, what it did, facts, verifier) and
+`trace.jsonl`; the top of the report is printed when the run ends.
+
+Optional `.env` settings: `HEADLESS`, `SLOW_MO_MS`, `MAX_STEPS` (60), `MAX_RETRIES` (2), `MAX_REPLANS` (2),
+`TOKEN_BUDGET` (400000), `APPROVAL_THRESHOLD_INR` (250000), `RUN_DIR` (runs). Full list: `agent/config.py`.
 
 The credentials in this repo belong to the mock apps and are not real.
 
